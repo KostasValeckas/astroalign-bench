@@ -5,7 +5,24 @@ import sys
 import os
 import json
 import argparse
-from scipy.ndimage import gaussian_filter, rotate
+from scipy.ndimage import gaussian_filter, rotate, shift
+
+
+def parse_number(value):
+    """Argparse `type` that returns an int if the input is an integer string,
+    otherwise returns a float. Raises `argparse.ArgumentTypeError` on failure.
+    """
+    try:
+        # Try integer first so '1' becomes int, '1.0' will fall through
+        iv = int(value)
+        # Reject inputs like '1.0' which int() would accept by truncation if value is float string? int('1.0') raises, so safe.
+        return iv
+    except ValueError:
+        try:
+            fv = float(value)
+            return fv
+        except ValueError:
+            raise argparse.ArgumentTypeError(f"Invalid numeric value: {value}")
 
 # IMPORTANT - this is the substring that will be used to identify altered frames.
 # In order to avoid recursive behaviour of altering already altered frames.
@@ -30,6 +47,14 @@ class FrameStack:
         self.filename = filename
         self.x_offset = x_offset
         self.y_offset = y_offset
+
+        self.x_offsets = (
+            np.arange(0, N_out*x_offset, x_offset) if x_offset != 0 else np.zeros(N_out)
+        )
+
+        self.y_offsets = (
+            np.arange(0, N_out*y_offset, y_offset) if y_offset != 0 else np.zeros(N_out)
+        )
 
         # Convert FWHM to sigma
         if gaussian_blur_fwhm is not None:
@@ -116,7 +141,7 @@ class FrameStack:
             print("Zero offset provided for x translation. Skipping...")
             return
 
-        offsets = np.arange(0, self.N_out, self.x_offset)
+        offsets = self.x_offsets
 
         print(f"Translating image in x direction with offsets: {offsets}")
 
@@ -154,7 +179,7 @@ class FrameStack:
             print("Zero offset provided for y translation. Skipping...")
             return
 
-        offsets = np.arange(0, self.N_out, self.y_offset)
+        offsets = self.y_offsets
 
         print(f"Translating image in y direction with offsets: {offsets}")
 
@@ -179,6 +204,60 @@ class FrameStack:
             self.data_cube[i] = cropped_image
 
         return
+
+
+    def shift_x_y(self):
+
+        max_offset_x = self.x_offsets[-1]
+        max_offset_y = self.y_offsets[-1]
+
+        cropped_lower_x = int(max_offset_x)
+        cropped_upper_x = int(self.x_shape - (max_offset_x - cropped_lower_x))
+
+        cropped_lower_y = int(max_offset_y)
+        cropped_upper_y = int(self.y_shape - (max_offset_y - cropped_lower_y))
+
+        cube_copy = self.data_cube.copy()
+
+        self.data_cube = np.zeros((self.N_out, cropped_upper_y - cropped_lower_y, cropped_upper_x - cropped_lower_x))
+
+        for i, image in enumerate(cube_copy):
+
+            # to stick with the convention of positive offsets being in the positive direction
+            dx = -self.x_offsets[i]
+            dy = -self.y_offsets[i]
+
+            x0 = cropped_lower_x
+            x1 = cropped_upper_x
+
+            y0 = cropped_lower_y
+            y1 = cropped_upper_y
+
+            valid = np.isfinite(image)
+            image_filled = np.nan_to_num(image, nan=0.0)
+
+            shifted = shift(
+                image_filled,
+                shift=(dy, dx),
+                order=3,
+                mode="constant",
+                cval=0.0
+            )
+
+            shifted_valid = shift(
+                valid.astype(float),
+                shift=(dy, dx),
+                order=1,
+                mode="constant",
+                cval=0.0
+            )
+
+            shifted[shifted_valid < 0.5] = np.nan
+
+            cropped = shifted[y0:y1, x0:x1]
+
+            self.data_cube[i] = cropped
+
 
     def convolve_psf(self):
         print(f"Applying Gaussian PSF blurring with sigma: {self.gaussian_blur_sigma}")
@@ -251,10 +330,16 @@ if __name__ == "__main__":
     )
     parser.add_argument("N_out", type=int, help="Number of output frames to create")
     parser.add_argument(
-        "--x_offset", type=int, default=0, help="Offset for x translation"
+        "--x_offset",
+        default=0,
+        type=parse_number,
+        help="Offset for x translation (int for whole-pixel, float for sub-pixel)",
     )
     parser.add_argument(
-        "--y_offset", type=int, default=0, help="Offset for y translation"
+        "--y_offset",
+        default=0,
+        type=parse_number,
+        help="Offset for y translation (int for whole-pixel, float for sub-pixel)",
     )
 
     parser.add_argument(
@@ -295,10 +380,14 @@ if __name__ == "__main__":
         print("x_offset must be a non-negative integer.")
         sys.exit(1)
 
+    type_x = type(x_offset)
+
     y_offset = args.y_offset
     if y_offset < 0:
         print("y_offset must be a non-negative integer.")
         sys.exit(1)
+
+    type_y = type(y_offset)
 
     hdul_index = args.hdul_index
     if hdul_index < 0:
@@ -338,8 +427,13 @@ if __name__ == "__main__":
             rot_angle=args.rot_angle
         )
 
-        fs.translate_x()
-        fs.translate_y()
+        if (type_x is int) and (type_y is int):
+            fs.translate_x()
+            fs.translate_y()
+
+        # sub pixel shift
+        else:
+            fs.shift_x_y()
 
         if blurr_fwhm is not None:
             fs.convolve_psf()

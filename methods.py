@@ -40,14 +40,14 @@ class AlignmentMethod:
 
         self.x_offset = log_dir["x_offset"]
         self.x_offsets = (
-            np.arange(0, self.N_out, self.x_offset)
+            np.arange(0, self.N_out*self.x_offset, self.x_offset)
             if self.x_offset != 0
             else np.zeros(self.N_out)
         )
 
         self.y_offset = log_dir["y_offset"]
         self.y_offsets = (
-            np.arange(0, self.N_out, self.y_offset)
+            np.arange(0, self.N_out*self.y_offset, self.y_offset)
             if self.y_offset != 0
             else np.zeros(self.N_out)
         )
@@ -246,12 +246,14 @@ class SpacePylot(AlignmentMethod):
             # solution
             op.get_iterate_translation_rotation()
 
-            self.recovered_x_offsets.append(op.translation[0])
-            self.recovered_y_offsets.append(op.translation[1])
+            self.recovered_x_offsets.append(op.translation[1])
+            self.recovered_y_offsets.append(op.translation[0])
             # to follow the scipy.rotate convention
             self.recovered_angles.append(-op.rotation_deg)
 
         self.x_error = np.array(self.recovered_x_offsets) - np.array(self.x_offsets)
+        print(f"Recovered x offsets: {self.recovered_x_offsets}")
+        print(f"X offsets: {self.x_offsets}")
         self.y_error = np.array(self.recovered_y_offsets) - np.array(self.y_offsets)
         self.angle_error = np.array(self.recovered_angles) - self.rot_angle
         self.angle_error[0] = 0  # first frame is reference frame, so no angle error
