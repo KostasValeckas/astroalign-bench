@@ -98,37 +98,54 @@ class MusePipeline(AlignmentMethod):
         self.dra = None
         self.ddec = None
 
-    def generate_sof_file(self):
+    def generate_sof_file(self, file):
 
-        with open(os.path.join(self.dir_path, self.sof_filename), "w") as sof_file:
-            for file in self.out_filenames:
-                sof_file.write(f"{file}    IMAGE_FOV\n")
+        with open(self.sof_filename, "w") as sof_file:
+            sof_file.write(f"{self.out_filenames[0]}    IMAGE_FOV\n")
+            sof_file.write(f"{file}    IMAGE_FOV\n")
 
         print(f"Generated .sof file: {self.sof_filename}")
 
     def run_method(self):
 
-        self.generate_sof_file()
+        """
+        Run the MUSE pipeline alignment method.
 
-        # a bit hacky but to avoid weird file writing
-
-        current_dir_backup = os.getcwd()
-
-        os.chdir(self.dir_path)
-
-        command = f"esorex muse_exp_align {self.sof_filename}"
-
-        os.system(command)
+        Only running one at a time, because if it fails for one frames the 
+        whole method does not produce the OFFSET_LIST.fits file 
+        and the rest of the frames cannot be processed.
+        """
 
         self.recovered_x_offsets = []
         self.recovered_y_offsets = []
 
-        # get all the degree offsets
-        offset_file_path = f"./OFFSET_LIST.fits"
-        self.dra = fits.getdata(offset_file_path)["RA_OFFSET"]
-        self.ddec = fits.getdata(offset_file_path)["DEC_OFFSET"]
+        current_dir_backup = os.getcwd()
 
         for i, file in enumerate(self.out_filenames):
+
+            
+            # a bit hacky but to avoid weird file writing
+            if i == 0: os.chdir(self.dir_path)
+
+            self.generate_sof_file(file)
+
+            command = f"esorex muse_exp_align {self.sof_filename}"
+
+            os.system(command)
+
+
+            # get all the degree offsets
+            offset_file_path = f"./OFFSET_LIST.fits"
+
+            # this is a bit hacky failsafe when MUSE pipeline fails
+            try:
+                self.dra = fits.getdata(offset_file_path)["RA_OFFSET"][-1]
+                self.ddec = fits.getdata(offset_file_path)["DEC_OFFSET"][-1]
+            except FileNotFoundError:
+                self.recovered_x_offsets.append(0)
+                self.recovered_y_offsets.append(0)
+                continue
+                
 
             file_path = f"./{file}"
 
@@ -143,8 +160,8 @@ class MusePipeline(AlignmentMethod):
             ref = SkyCoord(ra=ra_center * u.deg, dec=dec_center * u.deg, frame="icrs")
 
             # Sky offset
-            dra = self.dra[i] * u.deg
-            ddec = self.ddec[i] * u.deg
+            dra = self.dra * u.deg
+            ddec = self.ddec * u.deg
 
             target = SkyCoord(
                 ra=ra_center * u.deg + dra, dec=dec_center * u.deg + ddec, frame="icrs"
@@ -162,6 +179,10 @@ class MusePipeline(AlignmentMethod):
             # the shift
             self.recovered_x_offsets.append(-dx)
             self.recovered_y_offsets.append(-dy)
+
+
+        print(f"Recovered x offsets: {self.recovered_x_offsets}")
+        print(f"Recovered y offsets: {self.recovered_y_offsets}")
 
         self.x_error = np.array(self.recovered_x_offsets) - np.array(self.x_offsets)
         self.y_error = np.array(self.recovered_y_offsets) - np.array(self.y_offsets)
