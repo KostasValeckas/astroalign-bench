@@ -78,7 +78,7 @@ def plot_results(
 
     # create a GridSpec so the final row (best method) can span both columns
     fig = plt.figure(figsize=(12, 3 * (n + 1)))
-    gs = fig.add_gridspec(nrows=n + 2, ncols=2)
+    gs = fig.add_gridspec(nrows=n + 2, ncols=3)
 
     # top row: show original image (use first valid method to find file)
     first = valid_methods[0]
@@ -113,9 +113,10 @@ def plot_results(
     info_lines = [
         f"File: {method_list[0].filename}",
         f"N_Frames: {frames}",
+        f"Blurred with Gaussian PSF sigma: {blurred_sigma}",
+        f"Rotation angle (constrant): {method_list[0].rot_angle}",
         f"x offset increment pr. frame: {method_list[0].x_offset}",
         f"y offset increment pr. frame: {method_list[0].y_offset}",
-        f"Blurred with Gaussian PSF sigma: {blurred_sigma}",
         f"x and y mean erros:",
     ]
 
@@ -156,9 +157,11 @@ def plot_results(
         row = idx + 1
         ax_x = fig.add_subplot(gs[row, 0])
         ax_y = fig.add_subplot(gs[row, 1])
+        ax_angle = fig.add_subplot(gs[row, 2])
 
         ax_x.plot(method.x_offsets, method.x_error, color="C0")
         ax_y.plot(method.y_offsets, method.y_error, color="C1")
+        ax_angle.plot(np.arange(len(method.angle_error)), method.angle_error, color="C2")
 
         ax_x.set_xlabel("Offset in X (pixels)")
         ax_x.set_ylabel("Error in recovered X offset (pixels)")
@@ -167,6 +170,10 @@ def plot_results(
         ax_y.set_xlabel("Offset in Y (pixels)")
         ax_y.set_ylabel("Error in recovered Y offset (pixels)")
         ax_y.set_title(f"{method.method_name} — Y error")
+
+        ax_angle.set_xlabel("Frame index")
+        ax_angle.set_ylabel("Error in recovered rotation angle (degrees)")
+        ax_angle.set_title(f"{method.method_name} — Rotation error")
 
     # create a subplot that spans both columns for the best-method plot
     ax_best_method = fig.add_subplot(gs[n + 1, :])
@@ -207,6 +214,7 @@ def write_results_to_file(method_list: list[AlignmentMethod], output_dir: str):
     results["y_offsets"] = method_list[0].y_offsets.tolist(),
     results["best_method"] = evaluate_best_method(method_list)
     results["gaussian_blur_sigma"] = method_list[0].gaussian_blur_sigma
+    results["rotation_angle"] = method_list[0].rot_angle
 
     for method in method_list:
 
@@ -218,6 +226,12 @@ def write_results_to_file(method_list: list[AlignmentMethod], output_dir: str):
             ),
             "y_error": (
                 method.y_error.tolist() if method.y_error is not None else None
+            ),
+            "recovered_angles": (
+                method.recovered_angles if method.recovered_angles is not None else None
+            ),
+            "angle_error": (
+                method.angle_error.tolist() if method.angle_error is not None else None
             ),
         }
 

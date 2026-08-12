@@ -1,5 +1,3 @@
-from email.mime import image
-
 import numpy as np
 import glob
 from astropy.io import fits
@@ -7,7 +5,7 @@ import sys
 import os
 import json
 import argparse
-from scipy.ndimage import gaussian_filter
+from scipy.ndimage import gaussian_filter, rotate
 
 # IMPORTANT - this is the substring that will be used to identify altered frames.
 # In order to avoid recursive behaviour of altering already altered frames.
@@ -25,6 +23,7 @@ class FrameStack:
         y_offset,
         hdul_index,
         gaussian_blur_fwhm=None,
+        rot_angle=0.0
     ):
 
         self.dir_path = dir_path
@@ -47,6 +46,8 @@ class FrameStack:
         # through the different translations.
         self.x_shape = self.data.shape[1]
         self.y_shape = self.data.shape[0]
+
+        self.rot_angle = rot_angle
 
         self.data_cube = np.stack([self.data] * self.N_out, axis=0)
 
@@ -92,6 +93,7 @@ class FrameStack:
             "gaussian_blur_sigma": (
                 self.gaussian_blur_sigma if hasattr(self, "gaussian_blur_sigma") else 0
             ),
+            "rot_angle": self.rot_angle,
         }
 
         log_filename = os.path.join(
@@ -189,6 +191,55 @@ class FrameStack:
 
             self.data_cube[i] = gaussian_filter(image, sigma=self.gaussian_blur_sigma)
 
+    def rotate_images(self):
+        if self.rot_angle == 0.0:
+            print("No rotation angle provided. Skipping rotation...")
+            return
+
+        print(f"Rotating images by {self.rot_angle} degrees.")
+
+    
+        for i in range(self.N_out):
+
+            if i == 0:
+                # first image will be the reference, don't rotate it
+                continue
+
+
+            image = self.data_cube[i]
+
+            # 1. Where was the original image actually observed?
+            valid = np.isfinite(image)
+
+            # 2. Replace NaNs with zero temporarily
+            image_filled = np.nan_to_num(image, nan=0.0)
+
+            # 3. Rotate the flux
+            rotated = rotate(
+                image_filled,
+                angle=self.rot_angle,
+                reshape=False,
+                order=3,
+                mode="constant",
+                cval=0.0
+            )
+
+            # 4. Rotate the validity map
+            rotated_valid = rotate(
+                valid.astype(float),
+                angle=self.rot_angle,
+                reshape=False,
+                order=1,
+                mode="constant",
+                cval=0.0
+            )
+
+            # 5. Restore NaNs where there isn't valid data
+            rotated[rotated_valid < 0.5] = np.nan
+
+            self.data_cube[i] = rotated
+
+
 
 if __name__ == "__main__":
 
@@ -215,6 +266,10 @@ if __name__ == "__main__":
 
     parser.add_argument(
         "--hdul_index", type=int, default=1, help="HDU index to read/write (default: 1)"
+    )
+
+    parser.add_argument(
+        "--rot_angle", type=float, default=0.0, help="Rotation angle in degrees (optional)"
     )
 
     args = parser.parse_args()
@@ -280,6 +335,7 @@ if __name__ == "__main__":
             y_offset,
             hdul_index,
             gaussian_blur_fwhm=blurr_fwhm,
+            rot_angle=args.rot_angle
         )
 
         fs.translate_x()
@@ -287,6 +343,8 @@ if __name__ == "__main__":
 
         if blurr_fwhm is not None:
             fs.convolve_psf()
+
+        fs.rotate_images()
 
         fs.write_log_to_file()
 
