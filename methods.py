@@ -39,14 +39,24 @@ class AlignmentMethod:
         self.N_out = log_dir["N_out"]
 
         self.x_offset = log_dir["x_offset"]
-        self.x_offsets = np.arange(0, self.N_out, self.x_offset)
+        self.x_offsets = (
+            np.arange(0, self.N_out, self.x_offset)
+            if self.x_offset != 0
+            else np.zeros(self.N_out)
+        )
 
         self.y_offset = log_dir["y_offset"]
-        self.y_offsets = np.arange(0, self.N_out, self.y_offset)
+        self.y_offsets = (
+            np.arange(0, self.N_out, self.y_offset)
+            if self.y_offset != 0
+            else np.zeros(self.N_out)
+        )
 
         self.hdul_index = log_dir["hdul_index"]
 
         self.out_filenames = log_dir["out_filenames"]
+
+        self.gaussian_blur_sigma = log_dir["gaussian_blur_sigma"]
 
         # defined when the method is run
         self.recovered_x_offsets = None
@@ -107,7 +117,6 @@ class MusePipeline(AlignmentMethod):
         os.chdir(self.dir_path)
 
         command = f"esorex muse_exp_align {self.sof_filename}"
-
 
         os.system(command)
 

@@ -52,8 +52,9 @@ def evaluate_best_method(method_list):
     return best_method
 
 
-
-def plot_results(method_list: list[AlignmentMethod], output_dir: str, show: bool = False):
+def plot_results(
+    method_list: list[AlignmentMethod], output_dir: str, show: bool = False
+):
     """
     Parameters
     ----------
@@ -103,11 +104,18 @@ def plot_results(method_list: list[AlignmentMethod], output_dir: str, show: bool
 
     frames = method_list[0].N_out if method_list else "Unknown"
 
+    blurred_sigma = (
+        method_list[0].gaussian_blur_sigma
+        if method_list[0].gaussian_blur_sigma != 0
+        else False
+    )
+
     info_lines = [
         f"File: {method_list[0].filename}",
         f"N_Frames: {frames}",
         f"x offset increment pr. frame: {method_list[0].x_offset}",
         f"y offset increment pr. frame: {method_list[0].y_offset}",
+        f"Blurred with Gaussian PSF sigma: {blurred_sigma}",
         f"x and y mean erros:",
     ]
 
@@ -175,8 +183,11 @@ def plot_results(method_list: list[AlignmentMethod], output_dir: str, show: bool
         f"{output_dir}/{method_list[0].filename.split('.')[0]}_results.pdf",
         bbox_inches="tight",
     )
-    if show: plt.show()
-    else: plt.close(fig)
+    if show:
+        plt.show()
+    else:
+        plt.close(fig)
+
 
 def write_results_to_file(method_list: list[AlignmentMethod], output_dir: str):
     """
@@ -192,34 +203,27 @@ def write_results_to_file(method_list: list[AlignmentMethod], output_dir: str):
 
     results = {}
 
-    for method in method_list:
-        if (
-            method.recovered_x_offsets is not None
-            and method.recovered_y_offsets is not None
-        ):
-            results[method.method_name] = {
-                "x_offsets": method.x_offsets.tolist(),
-                "y_offsets": method.y_offsets.tolist(),
-                "recovered_x_offsets": method.recovered_x_offsets,
-                "recovered_y_offsets": method.recovered_y_offsets,
-                "x_error": (
-                    method.x_error.tolist() if method.x_error is not None else None
-                ),
-                "y_error": (
-                    method.y_error.tolist() if method.y_error is not None else None
-                ),
-            }
-        else:
-            results[method.method_name] = {
-                "x_offsets": method.x_offsets.tolist(),
-                "y_offsets": method.y_offsets.tolist(),
-                "recovered_x_offsets": None,
-                "recovered_y_offsets": None,
-                "x_error": None,
-                "y_error": None,
-            }
+    results["x_offsets"] = method_list[0].x_offsets.tolist(),
+    results["y_offsets"] = method_list[0].y_offsets.tolist(),
+    results["best_method"] = evaluate_best_method(method_list)
+    results["gaussian_blur_sigma"] = method_list[0].gaussian_blur_sigma
 
-    output_file_path = f"{output_dir}/{method_list[0].filename.split('.')[0]}_metrics.json"
+    for method in method_list:
+
+        results[method.method_name] = {
+            "recovered_x_offsets": method.recovered_x_offsets,
+            "recovered_y_offsets": method.recovered_y_offsets,
+            "x_error": (
+                method.x_error.tolist() if method.x_error is not None else None
+            ),
+            "y_error": (
+                method.y_error.tolist() if method.y_error is not None else None
+            ),
+        }
+
+    output_file_path = (
+        f"{output_dir}/{method_list[0].filename.split('.')[0]}_metrics.json"
+    )
 
     with open(output_file_path, "w") as outfile:
         json.dump(results, outfile, indent=4)
@@ -235,15 +239,15 @@ if __name__ == "__main__":
         "log_file_path",
         nargs="?",
         default=".",
-        help="Path to the log file containing test parameters. " \
-        "If --all_log_files is set, this should be a directory containing multiple log files."\
+        help="Path to the log file containing test parameters. "
+        "If --all_log_files is set, this should be a directory containing multiple log files."
         "Else, it should be a single JSON log file.",
     )
 
     parser.add_argument(
         "--output_dir",
         nargs="?",
-        default='.',
+        default=".",
         help="Path to the output directory where results will be saved (default: current directory)",
     )
 
@@ -257,7 +261,7 @@ if __name__ == "__main__":
         "--method",
         type=str,
         default="ALL",
-        help="Alignment method to use (default: ALL)."\
+        help="Alignment method to use (default: ALL)."
         "Options: 'MUSE Pipeline', 'SpacePylot', or 'ALL' to run all methods.",
     )
 
@@ -349,7 +353,7 @@ if __name__ == "__main__":
 
             method_list.append(method_instance)
 
-        plot_results(method_list, directory_path, show = args.show_plots)
+        plot_results(method_list, directory_path, show=args.show_plots)
         write_results_to_file(method_list, directory_path)
 
         if args.delete_files:

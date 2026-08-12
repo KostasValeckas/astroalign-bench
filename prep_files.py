@@ -1,3 +1,5 @@
+from email.mime import image
+
 import numpy as np
 import glob
 from astropy.io import fits
@@ -5,6 +7,7 @@ import sys
 import os
 import json
 import argparse
+from scipy.ndimage import gaussian_filter
 
 # IMPORTANT - this is the substring that will be used to identify altered frames.
 # In order to avoid recursive behaviour of altering already altered frames.
@@ -13,12 +16,25 @@ ALTERED_FRAME_SUBSTRING = "_alt_"
 
 class FrameStack:
 
-    def __init__(self, dir_path, filename, N_out, x_offset, y_offset, hdul_index):
+    def __init__(
+        self,
+        dir_path,
+        filename,
+        N_out,
+        x_offset,
+        y_offset,
+        hdul_index,
+        gaussian_blur_fwhm=None,
+    ):
 
         self.dir_path = dir_path
         self.filename = filename
         self.x_offset = x_offset
         self.y_offset = y_offset
+
+        # Convert FWHM to sigma
+        if gaussian_blur_fwhm is not None:
+            self.gaussian_blur_sigma = gaussian_blur_fwhm / (2 * np.sqrt(2 * np.log(2)))
 
         self.hdul_index = hdul_index
         self.hdul = fits.open(os.path.join(dir_path, filename))
@@ -73,6 +89,9 @@ class FrameStack:
             "y_offset": self.y_offset,
             "hdul_index": self.hdul_index,
             "out_filenames": self.out_filenames,
+            "gaussian_blur_sigma": (
+                self.gaussian_blur_sigma if hasattr(self, "gaussian_blur_sigma") else 0
+            ),
         }
 
         log_filename = os.path.join(
@@ -83,6 +102,9 @@ class FrameStack:
         print(f"Log written to {log_filename}")
 
     def translate_x(self):
+        """
+        For whole pixel translations.
+        """
 
         if self.x_offset is None:
             print("No offset provided for x translation. Skipping...")
@@ -118,6 +140,9 @@ class FrameStack:
             self.data_cube[i] = cropped_image
 
     def translate_y(self):
+        """
+        For whole pixel translations.
+        """
 
         if self.y_offset is None:
             print("No offset provided for y translation. Skipping...")
@@ -153,6 +178,17 @@ class FrameStack:
 
         return
 
+    def convolve_psf(self):
+        print(f"Applying Gaussian PSF blurring with sigma: {self.gaussian_blur_sigma}")
+
+        for i, image in enumerate(self.data_cube):
+
+            if i == 0:
+                # first image will be the referrence, don't blurr it
+                continue
+
+            self.data_cube[i] = gaussian_filter(image, sigma=self.gaussian_blur_sigma)
+
 
 if __name__ == "__main__":
 
@@ -169,6 +205,14 @@ if __name__ == "__main__":
     parser.add_argument(
         "--y_offset", type=int, default=0, help="Offset for y translation"
     )
+
+    parser.add_argument(
+        "--blurr_fwhm",
+        type=float,
+        default=None,
+        help="FWHM for Gaussian blurring (optional)",
+    )
+
     parser.add_argument(
         "--hdul_index", type=int, default=1, help="HDU index to read/write (default: 1)"
     )
@@ -206,6 +250,11 @@ if __name__ == "__main__":
         print("hdul_index must be a non-negative integer.")
         sys.exit(1)
 
+    blurr_fwhm = args.blurr_fwhm
+    if blurr_fwhm is not None and blurr_fwhm <= 0:
+        print("blurr_fwhm must be a positive number.")
+        sys.exit(1)
+
     # find first .fits file in directory
     fits_files = glob.glob(os.path.join(dir_path, "*.fits"))
 
@@ -223,10 +272,21 @@ if __name__ == "__main__":
 
         filename = os.path.basename(fits_files[i])
 
-        fs = FrameStack(dir_path, filename, N_out, x_offset, y_offset, hdul_index)
+        fs = FrameStack(
+            dir_path,
+            filename,
+            N_out,
+            x_offset,
+            y_offset,
+            hdul_index,
+            gaussian_blur_fwhm=blurr_fwhm,
+        )
 
         fs.translate_x()
         fs.translate_y()
+
+        if blurr_fwhm is not None:
+            fs.convolve_psf()
 
         fs.write_log_to_file()
 
