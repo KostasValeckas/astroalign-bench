@@ -1,9 +1,9 @@
-./test_data/*alt*
-./test_data/*json*
-./test_data/*pdf*
+/test_data/*alt*
+/test_data/*json*
+/test_data/*pdf*
 
-./*alt*
-./*json*
-./*pdf*
+/*alt*
+/*json*
+/*pdf*
 
 __pycache__/
