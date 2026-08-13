@@ -1,6 +1,6 @@
 A software suite for testing alignment methods for astronomical imaging.
-This suite contains functionality  to fabricate physical pixel-wise coordinate 
-offset frames generated based on a reference (input) FITS file, and then test user 
+This suite contains functionality  to fabricate offset frames (translation, rotation and PSF blurring)
+ generated based on a reference (input) FITS file, and then to test the user 
 defined allignment methods trying to align the fabricated frames back to the 
 reference (input) frame.
 
