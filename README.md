@@ -75,7 +75,7 @@ Currently, the frame fabrication script ```prep_files.py``` supports the followi
 # Benchmarking logic
 
 The methods are benchmarked by comapring the cartersian distance between the recovered offsets and the true offsets. 
-Therefore, any recovered rotation angle needs to be applied to the pre-aligned frames before calculating the translation offsets.
+Therefore, any recovered rotation angle needs to be applied to the pre-aligned frames before calculating the translation offsets (see the [section about adding new methods to the test suite](#adding-new-methods-to-the-test-suite)).
 
 # Adding new methods to the test suite
 
@@ -85,7 +85,7 @@ New modules are to be added in the ```methods.py``` module. The new method
 should inherit from the ```AlignmentMethod``` class, and implement a ```run(self)``` method, that populates the ```self.recovered_x_offsets```, ```self.recovered_y_offsets```, ```self.x_error```, and ```self.y_error``` attributes. Any recovered rotation angle needs to be applied to the pre-aligned frame before estimating the offsets - this is also to be implemented in the ```run(self)``` method. For an example, see the implementation of the ```SpacePylot``` class in ```methods.py```.
 
 When this is done, the method should be added in ```run_tests.py```, in the 
-beginning of the script:s
+beginning of the script:
 
 ```python
 from methods import AlignmentMethod, MusePipeline, SpacePylot # extend here
