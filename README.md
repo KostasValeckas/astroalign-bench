@@ -58,6 +58,14 @@ The ```results``` directory:
 
 will contain both metrics for each method tested, as well as plots of the results.
 
+# Parallelization
+
+Use the ```--N_cores``` argument to specify the number of CPU cores to use for parallel processing. For example, to use 4 cores, run:
+
+```bash
+python run_tests.py --N_cores 4 ./test_data
+```
+
 # Frame fabrication options
 
 Currently, the frame fabrication script ```prep_files.py``` supports the following options:
