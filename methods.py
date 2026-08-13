@@ -13,6 +13,8 @@ import spacepylot.plotting as pl
 from spacepylot.alignment_utilities import TranslationTransform
 from utils import rotate_image, shift_image
 from scipy.optimize import least_squares
+import sys
+
 
 
 class AlignmentMethod:
@@ -104,11 +106,13 @@ class MusePipeline(AlignmentMethod):
         self.dra = None
         self.ddec = None
 
+        self.local_working_dir = os.path.join(self.dir_path, self.filename.split(".")[0])
+
     def generate_sof_file(self, file):
 
         with open(self.sof_filename, "w") as sof_file:
-            sof_file.write(f"{self.out_filenames[0]}    IMAGE_FOV\n")
-            sof_file.write(f"{file}    IMAGE_FOV\n")
+            sof_file.write(f"../{self.out_filenames[0]}    IMAGE_FOV\n")
+            sof_file.write(f"../{file}    IMAGE_FOV\n")
 
         print(f"Generated .sof file: {self.sof_filename}")
 
@@ -127,11 +131,15 @@ class MusePipeline(AlignmentMethod):
 
         current_dir_backup = os.getcwd()
 
+        
+
         for i, file in enumerate(self.out_filenames):
 
             # a bit hacky but to avoid weird file writing
             if i == 0:
-                os.chdir(self.dir_path)
+                if not os.path.exists(self.local_working_dir):
+                    os.mkdir(self.local_working_dir)
+                os.chdir(self.local_working_dir)
 
             self.generate_sof_file(file)
 
@@ -155,7 +163,7 @@ class MusePipeline(AlignmentMethod):
 
             file_path = f"./{file}"
 
-            hdul = fits.open(file_path)
+            hdul = fits.open(f"../{file_path}")
 
             wcs = WCS(hdul[self.hdul_index].header)
 
@@ -206,15 +214,20 @@ class MusePipeline(AlignmentMethod):
                 print(f"File {file_path} does not exist, cannot delete.")
 
         # and lastly some manual deletes
-        os.remove(f"./esorex.log")
-        for p in glob.glob("./*.sof"):
-            try:
-                os.remove(p)
-            except OSError as e:
-                print(f"Failed to remove {p}: {e}")
+        try:
+            os.remove(f"./esorex.log")
+        except FileNotFoundError as e:
+            print(f"File esorex.log not found: skipping removal. Error: {e}...")
+
+        try: 
+            os.remove(f"./{self.sof_filename}")
+        except FileNotFoundError as e:
+            print(f"File {self.sof_filename} not found: skipping removal. Error: {e}...")
 
         # Change back to the original directory
         os.chdir(current_dir_backup)
+
+        os.rmdir(self.local_working_dir)
 
 
 class SpacePylot(AlignmentMethod):
