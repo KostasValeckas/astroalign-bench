@@ -56,14 +56,34 @@ The ```results``` directory:
 │   └── IMAGE_FOV_prealign_P03_WFI_BB_2018-01-20T01:16:28_0001_results.pdf
 ```
 
-will contain both metrics for each method tested, as well as plots of the results. 
+will contain both metrics for each method tested, as well as plots of the results.
+
+# Frame fabrication options
+
+Currently, the frame fabrication script ```prep_files.py``` supports the following options:
+
+```bash
+--x_offset X_OFFSET   (Incremental) offset for x translation (int for whole-pixel, float for sub-pixel)
+--y_offset Y_OFFSET   (Incremental) offset for y translation (int for whole-pixel, float for sub-pixel)
+--blurr_fwhm BLURR_FWHM
+                      FWHM for Gaussian blurring - the blurring is applied after the translation to the pre-aligned frames
+--rot_angle ROT_ANGLE
+                      Rotation angle in degrees - constant for all fabricated frames, applied after the translation to the pre-aligned frames
+
+```
+
+# Benchmarking logic
+
+The methods are benchmarked by comapring the cartersian distance between the recovered offsets and the true offsets. 
+Therefore, any recovered rotation angle needs to be applied to the pre-aligned frames before calculating the translation offsets.
 
 # Adding new methods to the test suite
 
 The framework is designed to be easily expandable.
 
 New modules are to be added in the ```methods.py``` module. The new method 
-should inherit from the ```AlignmentMethod``` class, and implement a ```run(self)``` method, that populates the ```self.recovered_x_offsets```, ```self.recovered_y_offsets```, ```self.x_error```, and ```self.y_error``` attributes. 
+should inherit from the ```AlignmentMethod``` class, and implement a ```run(self)``` method, that populates the ```self.recovered_x_offsets```, ```self.recovered_y_offsets```, ```self.x_error```, and ```self.y_error``` attributes. Any recovered rotation angle needs to be applied to the pre-aligned frame before estimating the offsets - this is also to be implemented in the ```run(self)``` method. For an example, see the implementation of the ```SpacePylot``` class in ```methods.py```.
+
 When this is done, the method should be added in ```run_tests.py```, in the 
 beginning of the script:s
 
@@ -78,7 +98,7 @@ METHOD_ENUM = {
 }
 ```
 
-Once that is done, the test suite will automatically include the new method in the tests, and will generate metrics and plots for it.
+Once this is done, the test suite will automatically include the new method in the tests, and will generate metrics and plots for it.
 
 # Design 
 
