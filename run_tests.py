@@ -161,7 +161,9 @@ def plot_results(
 
         ax_x.plot(method.x_offsets, method.x_error, color="C0")
         ax_y.plot(method.y_offsets, method.y_error, color="C1")
-        ax_angle.plot(np.arange(len(method.angle_error)), method.angle_error, color="C2")
+        ax_angle.plot(
+            np.arange(len(method.angle_error)), method.angle_error, color="C2"
+        )
 
         ax_x.set_xlabel("Offset in X (pixels)")
         ax_x.set_ylabel("Error in recovered X offset (pixels)")
@@ -210,8 +212,8 @@ def write_results_to_file(method_list: list[AlignmentMethod], output_dir: str):
 
     results = {}
 
-    results["x_offsets"] = method_list[0].x_offsets.tolist(),
-    results["y_offsets"] = method_list[0].y_offsets.tolist(),
+    results["x_offsets"] = (method_list[0].x_offsets.tolist(),)
+    results["y_offsets"] = (method_list[0].y_offsets.tolist(),)
     results["best_method"] = evaluate_best_method(method_list)
     results["gaussian_blur_sigma"] = method_list[0].gaussian_blur_sigma
     results["rotation_angle"] = method_list[0].rot_angle
