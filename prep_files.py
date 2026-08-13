@@ -5,7 +5,8 @@ import sys
 import os
 import json
 import argparse
-from scipy.ndimage import gaussian_filter, rotate, shift
+from scipy.ndimage import gaussian_filter
+from utils import shift_image, rotate_image
 
 
 def parse_number(value):
@@ -24,6 +25,7 @@ def parse_number(value):
         except ValueError:
             raise argparse.ArgumentTypeError(f"Invalid numeric value: {value}")
 
+
 # IMPORTANT - this is the substring that will be used to identify altered frames.
 # In order to avoid recursive behaviour of altering already altered frames.
 ALTERED_FRAME_SUBSTRING = "_alt_"
@@ -40,7 +42,7 @@ class FrameStack:
         y_offset,
         hdul_index,
         gaussian_blur_fwhm=None,
-        rot_angle=0.0
+        rot_angle=0.0,
     ):
 
         self.dir_path = dir_path
@@ -49,11 +51,15 @@ class FrameStack:
         self.y_offset = y_offset
 
         self.x_offsets = (
-            np.arange(0, N_out*x_offset, x_offset) if x_offset != 0 else np.zeros(N_out)
+            np.arange(0, N_out * x_offset, x_offset)
+            if x_offset != 0
+            else np.zeros(N_out)
         )
 
         self.y_offsets = (
-            np.arange(0, N_out*y_offset, y_offset) if y_offset != 0 else np.zeros(N_out)
+            np.arange(0, N_out * y_offset, y_offset)
+            if y_offset != 0
+            else np.zeros(N_out)
         )
 
         # Convert FWHM to sigma
@@ -205,7 +211,6 @@ class FrameStack:
 
         return
 
-
     def shift_x_y(self):
 
         max_offset_x = self.x_offsets[-1]
@@ -219,7 +224,13 @@ class FrameStack:
 
         cube_copy = self.data_cube.copy()
 
-        self.data_cube = np.zeros((self.N_out, cropped_upper_y - cropped_lower_y, cropped_upper_x - cropped_lower_x))
+        self.data_cube = np.zeros(
+            (
+                self.N_out,
+                cropped_upper_y - cropped_lower_y,
+                cropped_upper_x - cropped_lower_x,
+            )
+        )
 
         for i, image in enumerate(cube_copy):
 
@@ -233,31 +244,11 @@ class FrameStack:
             y0 = cropped_lower_y
             y1 = cropped_upper_y
 
-            valid = np.isfinite(image)
-            image_filled = np.nan_to_num(image, nan=0.0)
-
-            shifted = shift(
-                image_filled,
-                shift=(dy, dx),
-                order=3,
-                mode="constant",
-                cval=0.0
-            )
-
-            shifted_valid = shift(
-                valid.astype(float),
-                shift=(dy, dx),
-                order=1,
-                mode="constant",
-                cval=0.0
-            )
-
-            shifted[shifted_valid < 0.5] = np.nan
+            shifted = shift_image(image, dx, dy)
 
             cropped = shifted[y0:y1, x0:x1]
 
             self.data_cube[i] = cropped
-
 
     def convolve_psf(self):
         print(f"Applying Gaussian PSF blurring with sigma: {self.gaussian_blur_sigma}")
@@ -277,47 +268,17 @@ class FrameStack:
 
         print(f"Rotating images by {self.rot_angle} degrees.")
 
-    
         for i in range(self.N_out):
 
             if i == 0:
                 # first image will be the reference, don't rotate it
                 continue
 
-
             image = self.data_cube[i]
 
-            # 1. Where was the original image actually observed?
-            valid = np.isfinite(image)
-
-            # 2. Replace NaNs with zero temporarily
-            image_filled = np.nan_to_num(image, nan=0.0)
-
-            # 3. Rotate the flux
-            rotated = rotate(
-                image_filled,
-                angle=self.rot_angle,
-                reshape=False,
-                order=3,
-                mode="constant",
-                cval=0.0
-            )
-
-            # 4. Rotate the validity map
-            rotated_valid = rotate(
-                valid.astype(float),
-                angle=self.rot_angle,
-                reshape=False,
-                order=1,
-                mode="constant",
-                cval=0.0
-            )
-
-            # 5. Restore NaNs where there isn't valid data
-            rotated[rotated_valid < 0.5] = np.nan
+            rotated = rotate_image(image, self.rot_angle)
 
             self.data_cube[i] = rotated
-
 
 
 if __name__ == "__main__":
@@ -354,7 +315,10 @@ if __name__ == "__main__":
     )
 
     parser.add_argument(
-        "--rot_angle", type=float, default=0.0, help="Rotation angle in degrees (optional)"
+        "--rot_angle",
+        type=float,
+        default=0.0,
+        help="Rotation angle in degrees (optional)",
     )
 
     args = parser.parse_args()
@@ -424,7 +388,7 @@ if __name__ == "__main__":
             y_offset,
             hdul_index,
             gaussian_blur_fwhm=blurr_fwhm,
-            rot_angle=args.rot_angle
+            rot_angle=args.rot_angle,
         )
 
         if (type_x is int) and (type_y is int):
