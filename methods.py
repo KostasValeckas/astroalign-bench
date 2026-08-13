@@ -11,7 +11,7 @@ import astropy.units as u
 import spacepylot.alignment as align
 import spacepylot.plotting as pl
 from spacepylot.alignment_utilities import TranslationTransform
-
+from scipy.ndimage import rotate
 
 class AlignmentMethod:
     """
@@ -224,6 +224,41 @@ class SpacePylot(AlignmentMethod):
     def __init__(self, log_file_path):
         super().__init__(log_file_path, "SpacePylot")
 
+
+    def rotate(self, image, angle):
+        """
+        Needed to correct the detected rotation before calculating the translation.
+        """
+
+        # TODO: repeated code from prep_frame - maybe a utils module?
+
+        # 1. Where was the original image actually observed?
+        valid = np.isfinite(image)
+        # 2. Replace NaNs with zero temporarily
+        image_filled = np.nan_to_num(image, nan=0.0)
+        # 3. Rotate the flux
+        rotated = rotate(
+            image_filled,
+            angle=angle,
+            reshape=False,
+            order=3,
+            mode="constant",
+            cval=0.0
+        )
+        # 4. Rotate the validity map
+        rotated_valid = rotate(
+            valid.astype(float),
+            angle=angle,
+            reshape=False,
+            order=1,
+            mode="constant",
+            cval=0.0
+        )
+        rotated[rotated_valid < 0.5] = np.nan
+
+        return rotated
+
+
     def run_method(self):
 
         self.recovered_x_offsets = []
@@ -236,20 +271,36 @@ class SpacePylot(AlignmentMethod):
 
             path_prealign = f"{self.dir_path}/{file}"
 
-            op = align.AlignOpticalFlow.from_fits(
-                path_prealign,
-                path_reference,
-                hdu_index_reference=self.hdul_index,
-                hdu_index_prealign=self.hdul_index,
+            # first calculate rotation, correct for it, and then 
+            # calculate translation offsets
+
+            data_reference = fits.getdata(path_reference, self.hdul_index)
+            data_prealign = fits.getdata(path_prealign, self.hdul_index)
+
+            op = align.AlignOpticalFlow(
+                data_prealign,
+                data_reference,
             )
 
             # solution
             op.get_iterate_translation_rotation()
 
+            # trying - first correct rotation and then calculate offsets
+
+            self.recovered_angles.append(-op.rotation_deg)
+
+            rotated_data = self.rotate(data_prealign, op.rotation_deg)
+
+            # rerun now only for translation
+            op = align.AlignOpticalFlow(
+                rotated_data,
+                data_reference,
+            )
+
+            op.get_iterate_translation_rotation(homography_method=TranslationTransform)
+
             self.recovered_x_offsets.append(op.translation[1])
             self.recovered_y_offsets.append(op.translation[0])
-            # to follow the scipy.rotate convention
-            self.recovered_angles.append(-op.rotation_deg)
 
         self.x_error = np.array(self.recovered_x_offsets) - np.array(self.x_offsets)
         print(f"Recovered x offsets: {self.recovered_x_offsets}")
