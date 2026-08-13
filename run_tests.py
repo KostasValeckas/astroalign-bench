@@ -1,7 +1,7 @@
 import argparse
 from glob import glob
 import glob
-from methods import AlignmentMethod, MusePipeline, SpacePylot
+from methods import AlignmentMethod, MusePipeline, SpacePylot, MinimizeDifference
 import json
 import numpy as np
 import matplotlib.pyplot as plt
@@ -11,7 +11,8 @@ import os
 METHOD_ENUM = {
     "MUSE Pipeline": MusePipeline,
     "SpacePylot": SpacePylot,
-    "ALL": [MusePipeline, SpacePylot],
+    "MinimizeDifference": MinimizeDifference,
+    "ALL": [MusePipeline, SpacePylot, MinimizeDifference],
 }
 
 
@@ -114,7 +115,7 @@ def plot_results(
         f"File: {method_list[0].filename}",
         f"N_Frames: {frames}",
         f"Blurred with Gaussian PSF sigma: {blurred_sigma}",
-        f"Rotation angle (constrant): {method_list[0].rot_angle}",
+        f"Rotation angle (constant): {method_list[0].rot_angle}",
         f"x offset increment pr. frame: {method_list[0].x_offset}",
         f"y offset increment pr. frame: {method_list[0].y_offset}",
         f"x and y mean erros:",
