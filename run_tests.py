@@ -2,7 +2,7 @@ import argparse
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from glob import glob
 import glob
-from methods import AlignmentMethod, MusePipeline, SpacePylot, MinimizeDifference
+from methods import AlignmentMethod, MusePipeline, SpacePylot, MinimizeDifference, Chi2Shift
 import json
 import numpy as np
 import matplotlib.pyplot as plt
@@ -36,7 +36,8 @@ METHOD_ENUM = {
     "MUSE Pipeline": MusePipeline,
     "SpacePylot": SpacePylot,
     "MinimizeDifference": MinimizeDifference,
-    "ALL": [MusePipeline, SpacePylot, MinimizeDifference],
+    "Chi2Shift": Chi2Shift,
+    "ALL": [MusePipeline, SpacePylot, MinimizeDifference, Chi2Shift],
 }
 
 
