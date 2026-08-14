@@ -1,5 +1,6 @@
 import glob
 
+from matplotlib import image
 import numpy as np
 import matplotlib.pyplot as plt
 import json
@@ -14,6 +15,8 @@ from spacepylot.alignment_utilities import TranslationTransform
 from utils import rotate_image, shift_image
 from scipy.optimize import least_squares
 import sys
+from image_registration import chi2_shift
+from image_registration.fft_tools import shift as fft_shift
 
 
 
@@ -355,6 +358,45 @@ class MinimizeDifference(AlignmentMethod):
             self.recovered_x_offsets.append(result.x[0])
             self.recovered_y_offsets.append(result.x[1])
             self.recovered_angles.append(-result.x[2])
+
+        self.angle_error = np.array(self.recovered_angles) - self.rot_angle
+        self.angle_error = np.abs(self.angle_error)
+        self.angle_error[0] = 0  # first frame is reference frame, so no angle error
+        self.x_error = np.array(self.recovered_x_offsets) - np.array(self.x_offsets)
+        self.x_error = np.abs(self.x_error)
+        self.y_error = np.array(self.recovered_y_offsets) - np.array(self.y_offsets)
+        self.y_error = np.abs(self.y_error)
+
+
+class Chi2Shift(AlignmentMethod):
+
+    def __init__(self, log_file_path):
+        super().__init__(log_file_path, "Chi2Shift")
+
+    def run_method(self):
+
+        self.recovered_x_offsets = []
+        self.recovered_y_offsets = []
+        self.recovered_angles = []
+
+        path_reference = f"{self.dir_path}/{self.out_filenames[0]}"
+
+        for _, file in enumerate(self.out_filenames):
+
+            print(f"Running {self.method_name} on file: {file}")
+
+            path_prealign = f"{self.dir_path}/{file}"
+
+            data_reference = fits.getdata(path_reference, self.hdul_index)
+            data_prealign = fits.getdata(path_prealign, self.hdul_index)
+
+            dx, dy = chi2_shift(data_reference, data_prealign,return_error=False, upsample_factor='auto')
+
+            print(f"Recovered parameters for {file}: dx={dx}, dy={dy}")
+
+            self.recovered_x_offsets.append(-dx)
+            self.recovered_y_offsets.append(-dy)
+            self.recovered_angles.append(0)  # Chi2Shift does not recover angles
 
         self.angle_error = np.array(self.recovered_angles) - self.rot_angle
         self.angle_error = np.abs(self.angle_error)
