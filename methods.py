@@ -17,7 +17,8 @@ from scipy.optimize import least_squares
 import sys
 from image_registration import chi2_shift
 from image_registration.fft_tools import shift as fft_shift
-
+import subprocess
+import signal
 
 
 class AlignmentMethod:
@@ -146,10 +147,29 @@ class MusePipeline(AlignmentMethod):
 
             self.generate_sof_file(file)
 
-            command = f"esorex muse_exp_align {self.sof_filename}"
+            p = subprocess.Popen(
+                ["esorex", "muse_exp_align", self.sof_filename],
+                start_new_session=True,
+            )
 
-            os.system(command)
+            try:
+                p.wait()
 
+            except KeyboardInterrupt:
+                print("Ctrl-C: terminating esorex", flush=True)
+
+                try:
+                    os.killpg(p.pid, signal.SIGTERM)
+                except ProcessLookupError:
+                    pass
+                
+                try:
+                    p.wait(timeout=5)
+                except subprocess.TimeoutExpired:
+                    os.killpg(p.pid, signal.SIGKILL)
+                    p.wait()
+
+                raise
             # get all the degree offsets
             offset_file_path = f"./OFFSET_LIST.fits"
 

@@ -423,8 +423,23 @@ if __name__ == "__main__":
         # a bit hacky but less code
         log_files = [log_file_path]
 
-    with ProcessPoolExecutor(max_workers=N_cores) as ex:
+    ex = ProcessPoolExecutor(max_workers=N_cores)
+    
+    try:
         futures = [ex.submit(run_log_file, log_file) for log_file in log_files]
+    
         for f in as_completed(futures):
-            result = f.result()
+            f.result()
+    
+    except KeyboardInterrupt:
+        print("\nCtrl-C received; shutting down workers...", flush=True)
+        ex.shutdown(wait=False, cancel_futures=True)
+        raise
+    
+    except Exception:
+        ex.shutdown(wait=False, cancel_futures=True)
+        raise
+    
+    else:
+        ex.shutdown(wait=True)
     
