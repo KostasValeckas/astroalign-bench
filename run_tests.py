@@ -1,3 +1,8 @@
+import os
+os.environ["OMP_NUM_THREADS"] = "1"
+os.environ["MKL_NUM_THREADS"] = "1"
+os.environ["OPENBLAS_NUM_THREADS"] = "1"
+os.environ["NUMEXPR_NUM_THREADS"] = "1"
 import argparse
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from glob import glob
@@ -7,7 +12,6 @@ import json
 import numpy as np
 import matplotlib.pyplot as plt
 from astropy.io import fits
-import os
 from contextlib import redirect_stdout, redirect_stderr
 import sys
 
