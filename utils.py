@@ -1,10 +1,57 @@
 import numpy as np
 from scipy.ndimage import rotate, shift
+from astropy.wcs import WCS
 
 """
 A helper module to avoid repeated code.
 """
 
+#TODO the wcs methods don't need to be here, could be in FrameStack class
+def translate_x_wcs(wcs, dx):
+
+    new_wcs = wcs.deepcopy()
+
+    new_wcs.wcs.crpix[0] -= dx
+
+    return new_wcs
+
+def translate_y_wcs(wcs, dy):
+
+    new_wcs = wcs.deepcopy()
+
+    new_wcs.wcs.crpix[1] -= dy
+
+    return new_wcs
+
+def rotate_wcs(wcs, nx, ny, theta):
+
+    new_wcs = wcs.deepcopy()
+
+    theta = np.deg2rad(theta)
+
+    R = np.array([
+        [np.cos(theta), -np.sin(theta)],
+        [np.sin(theta),  np.cos(theta)]
+    ])
+
+    # Image center
+    center = np.array([
+        (nx - 1) / 2,
+        (ny - 1) / 2
+    ])
+
+    # Original reference pixel
+    crpix = np.array(new_wcs.wcs.crpix)
+
+    # Rotate CRPIX around image center
+    new_crpix = center + R @ (crpix - center)
+
+    new_wcs.wcs.crpix = new_crpix
+
+    # Rotate the WCS orientation
+    new_wcs.wcs.cd = new_wcs.wcs.cd @ R.T
+
+    return new_wcs
 
 def shift_image(image, dx, dy):
     """

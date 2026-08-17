@@ -1,12 +1,14 @@
 import numpy as np
 import glob
 from astropy.io import fits
+from reproject import reproject_interp
 import sys
 import os
 import json
 import argparse
+from astropy.wcs import WCS
 from scipy.ndimage import gaussian_filter
-from utils import shift_image, rotate_image
+from utils import shift_image, rotate_image, translate_x_wcs, translate_y_wcs, rotate_wcs
 
 
 def parse_number(value):
@@ -280,6 +282,43 @@ class FrameStack:
 
             self.data_cube[i] = rotated
 
+    def reproject_wcs(self):
+        """
+        Reproject the images using WCS transformations.
+        """
+
+        print("Reprojecting images using WCS transformations.")
+
+        cube_copy = self.data_cube.copy()
+
+        original_wcs = WCS(self.hdul[self.hdul_index].header).deepcopy()
+
+        for i, frame in enumerate(cube_copy):
+
+            if i == 0:
+                # first image will be the reference, don't reproject it
+                continue
+
+            dx = self.x_offsets[i]
+            dy = self.y_offsets[i]
+
+            # Create a copy of the original WCS to avoid modifying it
+            new_wcs = WCS(self.hdul[self.hdul_index].header).deepcopy()
+
+            # Apply translation and rotation to the WCS
+            new_wcs = translate_x_wcs(new_wcs, -dx)
+            new_wcs = translate_y_wcs(new_wcs, -dy)
+            new_wcs = rotate_wcs(new_wcs, self.x_shape, self.y_shape, self.rot_angle)
+
+            misaligned, _ = reproject_interp(
+                (frame, new_wcs),
+                original_wcs,
+                shape_out=(self.y_shape, self.x_shape)          
+            )
+
+            self.data_cube[i] = misaligned
+
+
 
 if __name__ == "__main__":
 
@@ -319,6 +358,12 @@ if __name__ == "__main__":
         type=float,
         default=0.0,
         help="Rotation angle in degrees (optional)",
+    )
+
+    parser.add_argument(
+        "--skip_wcs_reprojection",
+        action="store_true",
+        help="Skip WCS reprojection (direct image manipulation) (default: False)",
     )
 
     args = parser.parse_args()
@@ -391,18 +436,22 @@ if __name__ == "__main__":
             rot_angle=args.rot_angle,
         )
 
-        if (type_x is int) and (type_y is int):
-            fs.translate_x()
-            fs.translate_y()
+        if args.skip_wcs_reprojection:
+            if (type_x is int) and (type_y is int):
+                fs.translate_x()
+                fs.translate_y()
 
-        # sub pixel shift
+            # sub pixel shift
+            else:
+                fs.shift_x_y()
+                fs.rotate_images()
+
         else:
-            fs.shift_x_y()
+            print("Using WCS reprojection for image transformations.")
+            fs.reproject_wcs()
 
         if blurr_fwhm is not None:
             fs.convolve_psf()
-
-        fs.rotate_images()
 
         fs.write_log_to_file()
 
