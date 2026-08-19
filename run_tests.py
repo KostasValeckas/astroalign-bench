@@ -7,7 +7,7 @@ import argparse
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from glob import glob
 import glob
-from methods import AlignmentMethod, MusePipeline, SpacePylot, MinimizeDifference, Chi2Shift
+from methods import AlignmentMethod, MusePipeline, SpacePylot, MinimizeDifference, Chi2Shift, ECC
 import json
 import numpy as np
 import matplotlib.pyplot as plt
@@ -16,6 +16,14 @@ from contextlib import redirect_stdout, redirect_stderr
 import sys
 
 from contextlib import contextmanager
+
+
+def json_numpy_default(obj):
+    if isinstance(obj, np.generic):
+        return obj.item()
+    if isinstance(obj, np.ndarray):
+        return obj.tolist()
+    raise TypeError(f"Object of type {obj.__class__.__name__} is not JSON serializable")
 
 # for silencing output from esorex
 @contextmanager
@@ -41,7 +49,8 @@ METHOD_ENUM = {
     "SpacePylot": SpacePylot,
     "MinimizeDifference": MinimizeDifference,
     "Chi2Shift": Chi2Shift,
-    "ALL": [MusePipeline, SpacePylot, MinimizeDifference, Chi2Shift],
+    "ECC": ECC,
+    "ALL": [MusePipeline, SpacePylot, MinimizeDifference, Chi2Shift, ECC],
 }
 
 
@@ -272,19 +281,19 @@ def write_results_to_file(method_list: list[AlignmentMethod], output_dir: str):
     )
 
     with open(output_file_path, "w") as outfile:
-        json.dump(results, outfile, indent=4)
+        json.dump(results, outfile, indent=4, default=json_numpy_default)
 
     print(f"Results written to {output_file_path}")
 
 # for parallelization: 
 
 
-def run_log_file(log_file):
+def run_log_file(log_file, silence = True):
 
     print(f"Running tests for log file: {log_file}")
 
 
-    with silence_output():
+    with silence_output() if silence else contextmanager(lambda: (yield))():
 
         method_list = []
         if method_name == "ALL":
@@ -375,6 +384,12 @@ if __name__ == "__main__":
         help="Number of CPU cores to use for parallel processing (default: 1).",
     )
 
+    parser.add_argument(
+        "--verbose",
+        action="store_true",
+        help="If set, print verbose output during processing.",
+    )
+
 
     args = parser.parse_args()
 
@@ -430,7 +445,7 @@ if __name__ == "__main__":
     ex = ProcessPoolExecutor(max_workers=N_cores)
     
     try:
-        futures = [ex.submit(run_log_file, log_file) for log_file in log_files]
+        futures = [ex.submit(run_log_file, log_file, not args.verbose) for log_file in log_files]
     
         for f in as_completed(futures):
             f.result()
