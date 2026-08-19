@@ -19,6 +19,7 @@ from image_registration import chi2_shift
 from image_registration.fft_tools import shift as fft_shift
 import subprocess
 import signal
+import cv2
 
 
 class AlignmentMethod:
@@ -417,6 +418,92 @@ class Chi2Shift(AlignmentMethod):
             self.recovered_x_offsets.append(-dx)
             self.recovered_y_offsets.append(-dy)
             self.recovered_angles.append(0)  # Chi2Shift does not recover angles
+
+        self.angle_error = np.array(self.recovered_angles) - self.rot_angle
+        self.angle_error = np.abs(self.angle_error)
+        self.angle_error[0] = 0  # first frame is reference frame, so no angle error
+        self.x_error = np.array(self.recovered_x_offsets) - np.array(self.x_offsets)
+        self.x_error = np.abs(self.x_error)
+        self.y_error = np.array(self.recovered_y_offsets) - np.array(self.y_offsets)
+        self.y_error = np.abs(self.y_error)
+
+class ECC(AlignmentMethod):
+
+    def __init__(self, log_file_path, num_iterations=5000, termination_eps=1e-7):
+        super().__init__(log_file_path, "cv2ECC", )
+
+        self.num_iterations = num_iterations 
+        self.termination_eps = termination_eps
+
+    def run_method(self):
+
+        self.recovered_x_offsets = []
+        self.recovered_y_offsets = []
+        self.recovered_angles = []
+
+        path_reference = f"{self.dir_path}/{self.out_filenames[0]}"
+
+        for _, file in enumerate(self.out_filenames):
+
+            print(f"Running {self.method_name} on file: {file}")
+
+            path_prealign = f"{self.dir_path}/{file}"
+
+            data_reference = fits.getdata(path_reference, self.hdul_index)
+            data_prealign = fits.getdata(path_prealign, self.hdul_index)
+
+            # Convert images to float32
+            img1 = np.float32(data_reference)
+            img2 = np.float32(data_prealign)
+
+            # convert all NaN values to 0 for ECC to work
+            img1 = np.nan_to_num(img1, nan=0.0)
+            img2 = np.nan_to_num(img2, nan=0.0)
+
+            # Define the motion model
+            warp_mode = cv2.MOTION_EUCLIDEAN  # Translation + Rotation
+
+            # Initialize the matrix to identity
+            warp_matrix = np.eye(2, 3, dtype=np.float32)
+
+
+
+            criteria = (cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, self.num_iterations, self.termination_eps)
+
+            # Run the ECC algorithm
+            try:
+                _, warp_matrix = cv2.findTransformECC(img1, img2, warp_matrix, warp_mode, criteria)
+                h, w = img1.shape[:2]
+                
+                cx = (w - 1) / 2.0
+                cy = (h - 1) / 2.0
+                
+                R = warp_matrix[:, :2]
+                t_matrix = warp_matrix[:, 2]
+                
+                center = np.array([cx, cy], dtype=np.float32)
+                
+                translation = t_matrix - center + R @ center
+                
+                dx = translation[0]
+                dy = translation[1]
+                
+                angle_rad = np.arctan2(R[1, 0], R[0, 0])
+                angle_deg = np.degrees(angle_rad)
+
+                print(f"dx={dx:.3f}, dy={dy:.3f}, angle={angle_deg:.3f}")
+
+                print(f"Recovered parameters for {file}: dx={dx}, dy={dy}, angle={angle_deg}")
+
+                self.recovered_x_offsets.append(-dx)
+                self.recovered_y_offsets.append(-dy)
+                self.recovered_angles.append(-angle_deg)  # Negative because of coordinate system
+
+            except cv2.error as e:
+                print(f"ECC failed for {file}: {e}")
+                self.recovered_x_offsets.append(0)
+                self.recovered_y_offsets.append(0)
+                self.recovered_angles.append(0)
 
         self.angle_error = np.array(self.recovered_angles) - self.rot_angle
         self.angle_error = np.abs(self.angle_error)
