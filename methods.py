@@ -111,7 +111,9 @@ class MusePipeline(AlignmentMethod):
         self.dra = None
         self.ddec = None
 
-        self.local_working_dir = os.path.join(self.dir_path, self.filename.split(".")[0])
+        self.local_working_dir = os.path.join(
+            self.dir_path, self.filename.split(".")[0]
+        )
 
     def generate_sof_file(self, file):
 
@@ -135,8 +137,6 @@ class MusePipeline(AlignmentMethod):
         self.recovered_angles = []
 
         current_dir_backup = os.getcwd()
-
-        
 
         for i, file in enumerate(self.out_filenames):
 
@@ -163,7 +163,7 @@ class MusePipeline(AlignmentMethod):
                     os.killpg(p.pid, signal.SIGTERM)
                 except ProcessLookupError:
                     pass
-                
+
                 try:
                     p.wait(timeout=5)
                 except subprocess.TimeoutExpired:
@@ -243,10 +243,12 @@ class MusePipeline(AlignmentMethod):
         except FileNotFoundError as e:
             print(f"File esorex.log not found: skipping removal. Error: {e}...")
 
-        try: 
+        try:
             os.remove(f"./{self.sof_filename}")
         except FileNotFoundError as e:
-            print(f"File {self.sof_filename} not found: skipping removal. Error: {e}...")
+            print(
+                f"File {self.sof_filename} not found: skipping removal. Error: {e}..."
+            )
 
         # Change back to the original directory
         os.chdir(current_dir_backup)
@@ -258,7 +260,6 @@ class SpacePylot(AlignmentMethod):
 
     def __init__(self, log_file_path):
         super().__init__(log_file_path, "SpacePylot")
-
 
     def run_method(self):
 
@@ -311,6 +312,7 @@ class SpacePylot(AlignmentMethod):
         self.angle_error = np.abs(self.angle_error)
         self.angle_error[0] = 0  # first frame is reference frame, so no angle error
 
+
 class MinimizeDifference(AlignmentMethod):
 
     def __init__(self, log_file_path):
@@ -321,7 +323,6 @@ class MinimizeDifference(AlignmentMethod):
 
     def transform_function(self, dx, dy, angle, reference_image):
 
-
         # Rotate the target image by the given angle
         rotated_image = rotate_image(reference_image, angle)
 
@@ -329,8 +330,6 @@ class MinimizeDifference(AlignmentMethod):
         shifted_image = shift_image(rotated_image, dx, dy)
 
         return shifted_image
-
-
 
     def residuals(self, params, reference_image, prealign_image):
 
@@ -344,8 +343,6 @@ class MinimizeDifference(AlignmentMethod):
         resids = transformed_image[valid_pixels] - reference_image[valid_pixels]
 
         return np.nan_to_num(resids, nan=0.0, posinf=0.0, neginf=0.0)
-
-    
 
     def run_method(self):
 
@@ -364,17 +361,17 @@ class MinimizeDifference(AlignmentMethod):
             data_reference = fits.getdata(path_reference, self.hdul_index)
             data_prealign = fits.getdata(path_prealign, self.hdul_index)
 
-
-
             # Use least squares optimization to find the best dx, dy, and angle
             result = least_squares(
                 self.residuals,
                 self.initial_guess,
                 args=(data_reference, data_prealign),
-                bounds=self.bounds
+                bounds=self.bounds,
             )
 
-            print(f"Recovered parameters for {file}: dx={result.x[0]}, dy={result.x[1]}, angle={result.x[2]}")
+            print(
+                f"Recovered parameters for {file}: dx={result.x[0]}, dy={result.x[1]}, angle={result.x[2]}"
+            )
 
             self.recovered_x_offsets.append(result.x[0])
             self.recovered_y_offsets.append(result.x[1])
@@ -411,7 +408,12 @@ class Chi2Shift(AlignmentMethod):
             data_reference = fits.getdata(path_reference, self.hdul_index)
             data_prealign = fits.getdata(path_prealign, self.hdul_index)
 
-            dx, dy = chi2_shift(data_reference, data_prealign,return_error=False, upsample_factor='auto')
+            dx, dy = chi2_shift(
+                data_reference,
+                data_prealign,
+                return_error=False,
+                upsample_factor="auto",
+            )
 
             print(f"Recovered parameters for {file}: dx={dx}, dy={dy}")
 
@@ -427,12 +429,16 @@ class Chi2Shift(AlignmentMethod):
         self.y_error = np.array(self.recovered_y_offsets) - np.array(self.y_offsets)
         self.y_error = np.abs(self.y_error)
 
+
 class ECC(AlignmentMethod):
 
     def __init__(self, log_file_path, num_iterations=5000, termination_eps=1e-7):
-        super().__init__(log_file_path, "cv2ECC", )
+        super().__init__(
+            log_file_path,
+            "cv2ECC",
+        )
 
-        self.num_iterations = num_iterations 
+        self.num_iterations = num_iterations
         self.termination_eps = termination_eps
 
     def run_method(self):
@@ -466,38 +472,46 @@ class ECC(AlignmentMethod):
             # Initialize the matrix to identity
             warp_matrix = np.eye(2, 3, dtype=np.float32)
 
-
-
-            criteria = (cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, self.num_iterations, self.termination_eps)
+            criteria = (
+                cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT,
+                self.num_iterations,
+                self.termination_eps,
+            )
 
             # Run the ECC algorithm
             try:
-                _, warp_matrix = cv2.findTransformECC(img1, img2, warp_matrix, warp_mode, criteria)
+                _, warp_matrix = cv2.findTransformECC(
+                    img1, img2, warp_matrix, warp_mode, criteria
+                )
                 h, w = img1.shape[:2]
-                
+
                 cx = (w - 1) / 2.0
                 cy = (h - 1) / 2.0
-                
+
                 R = warp_matrix[:, :2]
                 t_matrix = warp_matrix[:, 2]
-                
+
                 center = np.array([cx, cy], dtype=np.float32)
-                
+
                 translation = t_matrix - center + R @ center
-                
+
                 dx = translation[0]
                 dy = translation[1]
-                
+
                 angle_rad = np.arctan2(R[1, 0], R[0, 0])
                 angle_deg = np.degrees(angle_rad)
 
                 print(f"dx={dx:.3f}, dy={dy:.3f}, angle={angle_deg:.3f}")
 
-                print(f"Recovered parameters for {file}: dx={dx}, dy={dy}, angle={angle_deg}")
+                print(
+                    f"Recovered parameters for {file}: dx={dx}, dy={dy}, angle={angle_deg}"
+                )
 
                 self.recovered_x_offsets.append(-dx)
                 self.recovered_y_offsets.append(-dy)
-                self.recovered_angles.append(-angle_deg)  # Negative because of coordinate system
+                self.recovered_angles.append(
+                    -angle_deg
+                )  # Negative because of coordinate system
 
             except cv2.error as e:
                 print(f"ECC failed for {file}: {e}")

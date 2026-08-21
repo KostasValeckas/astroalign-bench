@@ -6,7 +6,8 @@ from astropy.wcs import WCS
 A helper module to avoid repeated code.
 """
 
-#TODO the wcs methods don't need to be here, could be in FrameStack class
+
+# TODO the wcs methods don't need to be here, could be in FrameStack class
 def translate_x_wcs(wcs, dx):
 
     new_wcs = wcs.deepcopy()
@@ -14,6 +15,7 @@ def translate_x_wcs(wcs, dx):
     new_wcs.wcs.crpix[0] -= dx
 
     return new_wcs
+
 
 def translate_y_wcs(wcs, dy):
 
@@ -23,22 +25,17 @@ def translate_y_wcs(wcs, dy):
 
     return new_wcs
 
+
 def rotate_wcs(wcs, nx, ny, theta):
 
     new_wcs = wcs.deepcopy()
 
     theta = np.deg2rad(theta)
 
-    R = np.array([
-        [np.cos(theta), -np.sin(theta)],
-        [np.sin(theta),  np.cos(theta)]
-    ])
+    R = np.array([[np.cos(theta), -np.sin(theta)], [np.sin(theta), np.cos(theta)]])
 
     # Image center
-    center = np.array([
-        (nx - 1) / 2,
-        (ny - 1) / 2
-    ])
+    center = np.array([(nx - 1) / 2, (ny - 1) / 2])
 
     # Original reference pixel
     crpix = np.array(new_wcs.wcs.crpix)
@@ -52,6 +49,7 @@ def rotate_wcs(wcs, nx, ny, theta):
     new_wcs.wcs.cd = new_wcs.wcs.cd @ R.T
 
     return new_wcs
+
 
 def shift_image(image, dx, dy):
     """
@@ -74,6 +72,7 @@ def shift_image(image, dx, dy):
 
     return shifted
 
+
 def rotate_image(image, angle):
     """
     Rotate the image by the given angle.
@@ -89,14 +88,9 @@ def rotate_image(image, angle):
 
     # 3. Rotate the flux
     rotated = rotate(
-        image_filled,
-        angle=angle,
-        reshape=False,
-        order=3,
-        mode="constant",
-        cval=0.0
+        image_filled, angle=angle, reshape=False, order=3, mode="constant", cval=0.0
     )
-    
+
     # 4. Rotate the validity map
     rotated_valid = rotate(
         valid.astype(float),
@@ -104,9 +98,9 @@ def rotate_image(image, angle):
         reshape=False,
         order=1,
         mode="constant",
-        cval=0.0
+        cval=0.0,
     )
-    
+
     # 5. Restore NaNs where there isn't valid data
     rotated[rotated_valid < 0.5] = np.nan
 

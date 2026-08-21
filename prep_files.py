@@ -8,7 +8,13 @@ import json
 import argparse
 from astropy.wcs import WCS
 from scipy.ndimage import gaussian_filter
-from utils import shift_image, rotate_image, translate_x_wcs, translate_y_wcs, rotate_wcs
+from utils import (
+    shift_image,
+    rotate_image,
+    translate_x_wcs,
+    translate_y_wcs,
+    rotate_wcs,
+)
 
 
 def parse_number(value):
@@ -311,13 +317,10 @@ class FrameStack:
             new_wcs = rotate_wcs(new_wcs, self.x_shape, self.y_shape, self.rot_angle)
 
             misaligned, _ = reproject_interp(
-                (frame, new_wcs),
-                original_wcs,
-                shape_out=(self.y_shape, self.x_shape)          
+                (frame, new_wcs), original_wcs, shape_out=(self.y_shape, self.x_shape)
             )
 
             self.data_cube[i] = misaligned
-
 
 
 if __name__ == "__main__":

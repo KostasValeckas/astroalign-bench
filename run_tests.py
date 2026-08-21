@@ -1,4 +1,5 @@
 import os
+
 os.environ["OMP_NUM_THREADS"] = "1"
 os.environ["MKL_NUM_THREADS"] = "1"
 os.environ["OPENBLAS_NUM_THREADS"] = "1"
@@ -7,7 +8,14 @@ import argparse
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from glob import glob
 import glob
-from methods import AlignmentMethod, MusePipeline, SpacePylot, MinimizeDifference, Chi2Shift, ECC
+from methods import (
+    AlignmentMethod,
+    MusePipeline,
+    SpacePylot,
+    MinimizeDifference,
+    Chi2Shift,
+    ECC,
+)
 import json
 import numpy as np
 import matplotlib.pyplot as plt
@@ -24,6 +32,7 @@ def json_numpy_default(obj):
     if isinstance(obj, np.ndarray):
         return obj.tolist()
     raise TypeError(f"Object of type {obj.__class__.__name__} is not JSON serializable")
+
 
 # for silencing output from esorex
 @contextmanager
@@ -285,27 +294,27 @@ def write_results_to_file(method_list: list[AlignmentMethod], output_dir: str):
 
     print(f"Results written to {output_file_path}")
 
-# for parallelization: 
+
+# for parallelization:
 
 
-def run_log_file(log_file, silence = True):
+def run_log_file(log_file, silence=True):
 
     print(f"Running tests for log file: {log_file}")
-
 
     with silence_output() if silence else contextmanager(lambda: (yield))():
 
         method_list = []
         if method_name == "ALL":
-        
+
             for method_class in METHOD_ENUM["ALL"]:
                 method_instance = method_class(log_file)
                 method_instance.run_method()
                 method_list.append(method_instance)
         else:
-        
+
             if method is None:
-            
+
                 print(f"Unknown method: {method_name}")
                 print(f"Worker {i} failed running tests for log file: {log_file}")
                 return
@@ -315,7 +324,7 @@ def run_log_file(log_file, silence = True):
         plot_results(method_list, directory_path, show=args.show_plots)
         write_results_to_file(method_list, directory_path)
         if args.delete_files:
-        
+
             for file in method_list[0].out_filenames:
                 file_path = f"{method_list[0].dir_path}/{file}"
                 if os.path.exists(file_path):
@@ -326,9 +335,6 @@ def run_log_file(log_file, silence = True):
 
     print(f"Finished running tests for log file: {log_file}")
     return
-
-
-
 
 
 if __name__ == "__main__":
@@ -390,7 +396,6 @@ if __name__ == "__main__":
         help="If set, print verbose output during processing.",
     )
 
-
     args = parser.parse_args()
 
     log_file_path = args.log_file_path
@@ -443,22 +448,24 @@ if __name__ == "__main__":
         log_files = [log_file_path]
 
     ex = ProcessPoolExecutor(max_workers=N_cores)
-    
+
     try:
-        futures = [ex.submit(run_log_file, log_file, not args.verbose) for log_file in log_files]
-    
+        futures = [
+            ex.submit(run_log_file, log_file, not args.verbose)
+            for log_file in log_files
+        ]
+
         for f in as_completed(futures):
             f.result()
-    
+
     except KeyboardInterrupt:
         print("\nCtrl-C received; shutting down workers...", flush=True)
         ex.shutdown(wait=False, cancel_futures=True)
         raise
-    
+
     except Exception:
         ex.shutdown(wait=False, cancel_futures=True)
         raise
-    
+
     else:
         ex.shutdown(wait=True)
-    
