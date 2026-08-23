@@ -332,7 +332,6 @@ if __name__ == "__main__":
 
                 # we skip the first entry as it is the reference frame and has no error
                 x_errors = dict["x_error"][1:]
-                print(x_errors)
                 y_errors = dict["y_error"][1:]
                 angle_error = dict["angle_error"][1:]
 
@@ -348,16 +347,27 @@ if __name__ == "__main__":
                 results[directory_suffix][key]["x_mean_errors"].append(x_mean_error)
                 results[directory_suffix][key]["x_std_dev"].append(x_std_dev)
                 results[directory_suffix][key]["x_relative_errors"] = (np.array(x_errors) / np.array(x_offsets)) * 100
+                # cap relative errors to a 100% for further processing and plotting
+                results[directory_suffix][key]["x_relative_errors"] = np.clip(
+                    results[directory_suffix][key]["x_relative_errors"], 0, 100
+                )
 
                 results[directory_suffix][key]["y_mean_errors"].append(y_mean_error)
                 results[directory_suffix][key]["y_std_dev"].append(y_std_dev)
                 results[directory_suffix][key]["y_relative_errors"] = (np.array(y_errors) / np.array(y_offsets)) * 100
+                results[directory_suffix][key]["y_relative_errors"] = np.clip(
+                    results[directory_suffix][key]["y_relative_errors"], 0, 100
+                )
 
                 results[directory_suffix][key]["angle_mean_errors"].append(
                     angle_mean_error
                 )
                 results[directory_suffix][key]["angle_std_dev"].append(angle_std_dev)
                 results[directory_suffix][key]["angle_relative_errors"] = (np.array(angle_error) / rotation_angle) * 100
+                # cap relative errors to a 100% for further processing and plotting
+                results[directory_suffix][key]["angle_relative_errors"] = np.clip(
+                    results[directory_suffix][key]["angle_relative_errors"], 0, 100
+                )
 
     # Show mapping and error heatmaps in a 2x2 grid.
     fig, axs = plt.subplots(2, 2, figsize=(18, 14))
@@ -434,6 +444,8 @@ if __name__ == "__main__":
                 for directory_suffix in results_dir_list
             ]
         )
+
+
 
         cax = ax.imshow(data, cmap="RdYlGn_r", aspect="auto", vmin=0, vmax=100)
 

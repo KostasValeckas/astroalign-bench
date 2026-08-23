@@ -1,0 +1,15 @@
+{
+    "dir_path": "relative_errors_test_blurr_small_rot",
+    "filename": "IMAGE_FOV_prealign_P01_WFI_BB_2018-01-10T02_49_23_0001.fits",
+    "N_out": 3,
+    "x_offset": 0,
+    "y_offset": 0,
+    "hdul_index": 1,
+    "out_filenames": [
+        "IMAGE_FOV_prealign_P01_WFI_BB_2018-01-10T02_49_23_0001_alt_001.fits",
+        "IMAGE_FOV_prealign_P01_WFI_BB_2018-01-10T02_49_23_0001_alt_002.fits",
+        "IMAGE_FOV_prealign_P01_WFI_BB_2018-01-10T02_49_23_0001_alt_003.fits"
+    ],
+    "gaussian_blur_sigma": 0.8493218002880191,
+    "rot_angle": 0.1
+}

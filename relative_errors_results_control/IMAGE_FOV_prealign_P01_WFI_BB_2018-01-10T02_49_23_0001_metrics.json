@@ -1,0 +1,183 @@
+{
+    "x_offsets": [
+        [
+            0.0,
+            0.0,
+            0.0
+        ]
+    ],
+    "y_offsets": [
+        [
+            0.0,
+            0.0,
+            0.0
+        ]
+    ],
+    "best_method": [
+        "cv2ECC",
+        "MinimizeDifference",
+        "MinimizeDifference"
+    ],
+    "gaussian_blur_sigma": 0,
+    "rotation_angle": 0.0,
+    "MUSE Pipeline": {
+        "recovered_x_offsets": [
+            -0.0,
+            -0.0,
+            -0.0
+        ],
+        "recovered_y_offsets": [
+            -0.0,
+            -0.0,
+            -0.0
+        ],
+        "x_error": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "y_error": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "recovered_angles": [
+            0,
+            0,
+            0
+        ],
+        "angle_error": [
+            0.0,
+            0.0,
+            0.0
+        ]
+    },
+    "SpacePylot": {
+        "recovered_x_offsets": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "recovered_y_offsets": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "x_error": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "y_error": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "recovered_angles": [
+            -0.0,
+            -0.0,
+            -0.0
+        ],
+        "angle_error": [
+            0.0,
+            0.0,
+            0.0
+        ]
+    },
+    "MinimizeDifference": {
+        "recovered_x_offsets": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "recovered_y_offsets": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "x_error": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "y_error": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "recovered_angles": [
+            -0.0,
+            -0.0,
+            -0.0
+        ],
+        "angle_error": [
+            0.0,
+            0.0,
+            0.0
+        ]
+    },
+    "Chi2Shift": {
+        "recovered_x_offsets": [
+            -0.001953125,
+            0.158203125,
+            0.158203125
+        ],
+        "recovered_y_offsets": [
+            0.001953125,
+            -0.060546875,
+            -0.060546875
+        ],
+        "x_error": [
+            0.001953125,
+            0.158203125,
+            0.158203125
+        ],
+        "y_error": [
+            0.001953125,
+            0.060546875,
+            0.060546875
+        ],
+        "recovered_angles": [
+            0,
+            0,
+            0
+        ],
+        "angle_error": [
+            0.0,
+            0.0,
+            0.0
+        ]
+    },
+    "cv2ECC": {
+        "recovered_x_offsets": [
+            -0.0,
+            0.111114501953125,
+            0.111114501953125
+        ],
+        "recovered_y_offsets": [
+            -0.0,
+            -0.0950775146484375,
+            -0.0950775146484375
+        ],
+        "x_error": [
+            0.0,
+            0.111114501953125,
+            0.111114501953125
+        ],
+        "y_error": [
+            0.0,
+            0.0950775146484375,
+            0.0950775146484375
+        ],
+        "recovered_angles": [
+            3.644840518290948e-08,
+            -0.04939182475209236,
+            -0.04939182475209236
+        ],
+        "angle_error": [
+            0.0,
+            0.04939182475209236,
+            0.04939182475209236
+        ]
+    }
+}
