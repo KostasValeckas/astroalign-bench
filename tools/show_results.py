@@ -296,10 +296,15 @@ if __name__ == "__main__":
             results_dict = json.load(open(file, "r"))
 
             # these are to compute relative errors
-
-            x_offsets = results_dict["x_offsets"][1:]
-            y_offsets = results_dict["y_offsets"][1:]
+            x_offsets = np.array(results_dict["x_offsets"]).flatten()[1:]
+            y_offsets = np.array(results_dict["y_offsets"]).flatten()[1:]
             rotation_angle = results_dict["rotation_angle"]
+
+            # we replace all zeros in these values with a small value to deal with infs etc
+            x_offsets[x_offsets == 0] = 1e-3
+            y_offsets[y_offsets == 0] = 1e-3
+            if rotation_angle == 0:
+                rotation_angle = 1e-3
 
             keys = list(results_dict.keys())
 
@@ -342,17 +347,17 @@ if __name__ == "__main__":
 
                 results[directory_suffix][key]["x_mean_errors"].append(x_mean_error)
                 results[directory_suffix][key]["x_std_dev"].append(x_std_dev)
-                results[directory_suffix][key]["x_relative_errors"] = x_errors / x_offsets
+                results[directory_suffix][key]["x_relative_errors"] = (np.array(x_errors) / np.array(x_offsets)) * 100
 
                 results[directory_suffix][key]["y_mean_errors"].append(y_mean_error)
                 results[directory_suffix][key]["y_std_dev"].append(y_std_dev)
-                results[directory_suffix][key]["y_relative_errors"] = y_errors / y_offsets
+                results[directory_suffix][key]["y_relative_errors"] = (np.array(y_errors) / np.array(y_offsets)) * 100
 
                 results[directory_suffix][key]["angle_mean_errors"].append(
                     angle_mean_error
                 )
                 results[directory_suffix][key]["angle_std_dev"].append(angle_std_dev)
-                results[directory_suffix][key]["angle_relative_errors"] = angle_error / rotation_angle
+                results[directory_suffix][key]["angle_relative_errors"] = (np.array(angle_error) / rotation_angle) * 100
 
     # Show mapping and error heatmaps in a 2x2 grid.
     fig, axs = plt.subplots(2, 2, figsize=(18, 14))
@@ -402,9 +407,9 @@ if __name__ == "__main__":
     clean_rows = [row.replace("_results_", "") for row in results_dir_list]
 
     plot_specs = [
-        (0, 1, "angle", "Mean Angle Errors "),
-        (1, 0, "x", "Mean X Errors "),
-        (1, 1, "y", "Mean Y Errors "),
+        (0, 1, "angle", "Mean Relative Rotation Errors (%)"),
+        (1, 0, "x", "Mean Relative X Errors (%)"),
+        (1, 1, "y", "Mean Relative Y Errors (%)"),
     ]
 
     for row_idx, col_idx, error_type, title in plot_specs:
@@ -423,26 +428,37 @@ if __name__ == "__main__":
         std_data = np.array(
             [
                 [
-                    np.mean(results[directory_suffix][key][f"{error_type}_std_dev"])
+                    np.std(results[directory_suffix][key][f"{error_type}_relative_errors"])
                     for key in results[directory_suffix]
                 ]
                 for directory_suffix in results_dir_list
             ]
         )
 
-        cax = ax.imshow(data, cmap="RdYlGn_r", aspect="auto", vmin=0)
+        cax = ax.imshow(data, cmap="RdYlGn_r", aspect="auto", vmin=0, vmax=100)
 
         for i in range(data.shape[0]):
             for j in range(data.shape[1]):
-                ax.text(
-                    j,
-                    i,
-                    f"{data[i, j]:.5g}± {std_data[i, j]:.5g}",
-                    ha="center",
-                    va="center",
-                    color="black",
-                    fontsize=6,
-                )
+                if data[i, j] > 100:
+                    ax.text(
+                        j,
+                        i,
+                        f">100 %",
+                        ha="center",
+                        va="center",
+                        color="black",
+                        fontsize=6,
+                    )
+                else:
+                    ax.text(
+                        j,
+                        i,
+                        f"({data[i, j]:.0f} ± {std_data[i, j]:.1g})%",
+                        ha="center",
+                        va="center",
+                        color="black",
+                        fontsize=6,
+                    )
 
         ax.set_xticks(np.arange(len(method_names)))
         ax.set_xticklabels(method_names, fontsize=8, rotation=5, ha="right")
