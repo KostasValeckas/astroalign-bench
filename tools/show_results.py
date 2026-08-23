@@ -295,6 +295,12 @@ if __name__ == "__main__":
 
             results_dict = json.load(open(file, "r"))
 
+            # these are to compute relative errors
+
+            x_offsets = results_dict["x_offsets"][1:]
+            y_offsets = results_dict["y_offsets"][1:]
+            rotation_angle = results_dict["rotation_angle"]
+
             keys = list(results_dict.keys())
 
             result_temp = {}
@@ -336,14 +342,17 @@ if __name__ == "__main__":
 
                 results[directory_suffix][key]["x_mean_errors"].append(x_mean_error)
                 results[directory_suffix][key]["x_std_dev"].append(x_std_dev)
+                results[directory_suffix][key]["x_relative_errors"] = x_errors / x_offsets
 
                 results[directory_suffix][key]["y_mean_errors"].append(y_mean_error)
                 results[directory_suffix][key]["y_std_dev"].append(y_std_dev)
+                results[directory_suffix][key]["y_relative_errors"] = y_errors / y_offsets
 
                 results[directory_suffix][key]["angle_mean_errors"].append(
                     angle_mean_error
                 )
                 results[directory_suffix][key]["angle_std_dev"].append(angle_std_dev)
+                results[directory_suffix][key]["angle_relative_errors"] = angle_error / rotation_angle
 
     # Show mapping and error heatmaps in a 2x2 grid.
     fig, axs = plt.subplots(2, 2, figsize=(18, 14))
@@ -404,7 +413,7 @@ if __name__ == "__main__":
         data = np.array(
             [
                 [
-                    np.mean(results[directory_suffix][key][f"{error_type}_mean_errors"])
+                    np.mean(results[directory_suffix][key][f"{error_type}_relative_errors"])
                     for key in results[directory_suffix]
                 ]
                 for directory_suffix in results_dir_list
