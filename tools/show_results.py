@@ -465,7 +465,7 @@ if __name__ == "__main__":
                     ax.text(
                         j,
                         i,
-                        f"({data[i, j]:.0f} ± {std_data[i, j]:.1g})%",
+                        f"({data[i, j]:.0f} ± {std_data[i, j]:.1f})%",
                         ha="center",
                         va="center",
                         color="black",
