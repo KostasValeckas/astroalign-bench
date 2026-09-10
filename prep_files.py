@@ -16,6 +16,8 @@ from utils import (
     rotate_wcs,
 )
 
+import matplotlib.pyplot as plt
+
 
 def parse_number(value):
     """Argparse `type` that returns an int if the input is an integer string,
@@ -316,9 +318,13 @@ class FrameStack:
             new_wcs = translate_y_wcs(new_wcs, -dy)
             new_wcs = rotate_wcs(new_wcs, self.x_shape, self.y_shape, self.rot_angle)
 
+            # remove all nans for now
+            frame = np.nan_to_num(frame, nan=0.0)
+
             misaligned, _ = reproject_interp(
-                (frame, new_wcs), original_wcs, shape_out=(self.y_shape, self.x_shape)
+                (frame, new_wcs), original_wcs, shape_out=(self.y_shape, self.x_shape), order = 'bicubic'
             )
+
 
             self.data_cube[i] = misaligned
 
