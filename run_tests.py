@@ -15,6 +15,7 @@ from methods import (
     MinimizeDifference,
     Chi2Shift,
     ECC,
+    Astroalign
 )
 import json
 import numpy as np
@@ -59,7 +60,8 @@ METHOD_ENUM = {
     "MinimizeDifference": MinimizeDifference,
     "Chi2Shift": Chi2Shift,
     "ECC": ECC,
-    "ALL": [MusePipeline, SpacePylot, MinimizeDifference, Chi2Shift, ECC],
+    "Astroalign": Astroalign,
+    "ALL": [MusePipeline, SpacePylot, MinimizeDifference, Chi2Shift, ECC, Astroalign],
 }
 
 

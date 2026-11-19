@@ -20,6 +20,7 @@ from image_registration.fft_tools import shift as fft_shift
 import subprocess
 import signal
 import cv2
+import astroalign as aa
 
 
 class AlignmentMethod:
@@ -526,3 +527,159 @@ class ECC(AlignmentMethod):
         self.x_error = np.abs(self.x_error)
         self.y_error = np.array(self.recovered_y_offsets) - np.array(self.y_offsets)
         self.y_error = np.abs(self.y_error)
+
+
+class Astroalign(AlignmentMethod):
+
+    def __init__(self, log_file_path, pre_crop_pixels = 50):
+
+        self.pre_crop_pixels = pre_crop_pixels
+
+        super().__init__(
+            log_file_path,
+            "Astroalign",
+        )
+
+
+    def run_method(self):
+
+        self.recovered_x_offsets = []
+        self.recovered_y_offsets = []
+        self.recovered_angles = []
+
+        path_reference = f"{self.dir_path}/{self.out_filenames[0]}"
+
+        for _, file in enumerate(self.out_filenames):
+
+            print(f"Running {self.method_name} on file: {file}")
+
+            path_prealign = f"{self.dir_path}/{file}"
+
+            data_reference = fits.getdata(path_reference, self.hdul_index)
+            data_prealign = fits.getdata(path_prealign, self.hdul_index)
+
+            sci_data = np.asarray(data_prealign)
+            ref_data = np.asarray(data_reference) 
+            
+            sci_data = sci_data.astype(sci_data.dtype.newbyteorder("="), copy=False)
+            ref_data = ref_data.astype(ref_data.dtype.newbyteorder("="), copy=False)
+
+            # purge infs and nans:
+            ref_data = np.nan_to_num(ref_data, nan=0.0, posinf=0.0, neginf=0.0)
+            sci_data = np.nan_to_num(sci_data, nan=0.0, posinf=0.0, neginf=0.0)
+
+
+            try:
+
+
+                transf, (source_list, target_list) = aa.find_transform(sci_data, ref_data)
+
+                # apply the transformation to the source coordinate list to calculate the residuals from the target coordinate list
+                transformed_source_list = aa.matrix_transform(source_list, transf.params)
+
+                residuals = target_list - transformed_source_list
+
+                plt.figure(figsize=(10, 5))
+                plt.plot(residuals[:, 0], residuals[:, 1], 'o', label='Residuals')
+                plt.xlabel('Residual X (pixels)')
+                plt.ylabel('Residual Y (pixels)')
+                plt.title('Residuals after applying transformation')
+                plt.axhline(0, color='k', linestyle='--')
+                plt.axvline(0, color='k', linestyle='--')
+                plt.legend()
+                plt.show()
+
+
+                
+                """
+                fig, ax = plt.subplots(1, 2, figsize=(12, 6))
+                ax[0].imshow(sci_data, cmap='gray')
+                ax[0].scatter(source_list[:, 0], source_list[:, 1], s=10, c='red', marker='o', label='Source Points')
+                ax[0].set_title('Science Image with Source Points')
+                ax[0].legend()
+
+                ax[1].imshow(ref_data, cmap='gray')
+                ax[1].scatter(target_list[:, 0], target_list[:, 1], s=10, c='blue', marker='x', label='Target Points')
+                ax[1].set_title('Reference Image with Target Points')
+                ax[1].legend()
+
+                plt.show()
+
+                registered_image, _ = aa.apply_transform(transf, sci_data, ref_data)
+
+
+                old_diff_image = sci_data - ref_data
+                # plot new diff image:
+                new_diff_image = registered_image - ref_data
+
+                fig, ax = plt.subplots(1, 2, figsize=(12, 6))
+                ax[0].imshow(old_diff_image, cmap='gray')
+                ax[0].set_title('Difference Image (Science - Reference)')
+                ax[1].imshow(new_diff_image, cmap='gray')
+                ax[1].set_title('Difference Image (Registered Science - Reference)')
+                plt.show()
+                """
+
+
+                y_shape, x_shape = sci_data.shape
+
+                M = transf.params
+                R = M[:2, :2]
+                t = M[:2, 2]
+
+                center = np.array([(x_shape - 1) / 2, (y_shape - 1) / 2])
+
+                offset = t - center + R @ center
+
+                dx = offset[0]
+                dy = offset[1]
+                angle_rad = np.arctan2(R[1, 0], R[0, 0])
+
+                angle_deg = np.degrees(angle_rad)
+
+                scale = transf.scale
+
+                print(f"dx={dx:.3f}, dy={dy:.3f}, angle={angle_deg:.3f}")
+
+                print(
+                    f"Recovered parameters for {file}: dx={dx}, dy={dy}, angle={angle_deg}"
+                )
+
+ 
+                # plot found targets for QA:
+
+                plt.figure(figsize=(10, 5))
+                plt.scatter(source_list[:, 0], source_list[:, 1], s=10, c='red', marker='o', label='Source Points')
+                plt.scatter(target_list[:, 0], target_list[:, 1], s=10, c='blue', marker='x', label='Target Points')
+                
+                plt.xlabel('X Pixel Coordinate')
+                plt.ylabel('Y Pixel Coordinate')
+                plt.legend()
+                plt.title(f'Source and Target Points Found by Astroalign, Got rotation: {angle_deg:.3f} degrees, got translation: dx={dx:.3f}, dy={dy:.3f}, scale: {scale:.3f}')    
+                plt.show()
+
+
+
+
+
+                self.recovered_x_offsets.append(dx)
+                self.recovered_y_offsets.append(dy)
+                self.recovered_angles.append(
+                    angle_deg
+                ) 
+
+            except Exception as e:
+                print(f"Astroalign failed for {file}: {e}")
+                self.recovered_x_offsets.append(0)
+                self.recovered_y_offsets.append(0)
+                self.recovered_angles.append(0)
+
+
+        self.angle_error = np.array(self.recovered_angles) - self.rot_angle
+        self.angle_error = np.abs(self.angle_error)
+        self.angle_error[0] = 0  # first frame is reference frame, so no angle error
+        self.x_error = np.array(self.recovered_x_offsets) - np.array(self.x_offsets)
+        self.x_error = np.abs(self.x_error)
+        self.y_error = np.array(self.recovered_y_offsets) - np.array(self.y_offsets)
+        self.y_error = np.abs(self.y_error)
+

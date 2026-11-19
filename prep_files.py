@@ -1,7 +1,7 @@
 import numpy as np
 import glob
 from astropy.io import fits
-from reproject import reproject_interp
+from reproject import reproject_interp, reproject_exact
 import sys
 import os
 import json
@@ -321,9 +321,12 @@ class FrameStack:
             # remove all nans for now
             frame = np.nan_to_num(frame, nan=0.0)
 
-            misaligned, _ = reproject_interp(
-                (frame, new_wcs), original_wcs, shape_out=(self.y_shape, self.x_shape), order = 'bicubic'
+            misaligned, _ = reproject_exact(
+                (frame, new_wcs), original_wcs, shape_out=(self.y_shape, self.x_shape)
             )
+
+            # purge nans again:
+            misaligned = np.nan_to_num(misaligned, nan=0.0)
 
 
             self.data_cube[i] = misaligned
